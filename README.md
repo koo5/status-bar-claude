@@ -7,8 +7,9 @@ A shell script that renders a real-time Claude Code status line in your terminal
 ### Status bar elements
 
 ```
-Project   develop   Sonnet 4.6   ctx ▊▊▊▊▊▊▊▊ 60%   5h ▊▊▊▊▊▊▊▊ 9%   7d ▊▊▊▊▊▊▊▊ 26%
-  │          │           │             │                    │                  │
+Project   develop   Sonnet 4.6   ctx ▊▊▊▊▊▊▊▊ 60%   5h ▊▊▊▊▊▊▊▊ 9%   7d ▊▊▊▊▊▊▊▊ 26%   reset 8pm
+  │          │           │             │                    │                  │              │
+  │          │           │             │                    │                  │              └─ 5-hour reset time
   │          │           │             │                    │                  └─ 7-day token usage
   │          │           │             │                    └─ 5-hour token usage
   │          │           │             └─ Context window usage
@@ -18,6 +19,8 @@ Project   develop   Sonnet 4.6   ctx ▊▊▊▊▊▊▊▊ 60%   5h ▊▊▊
 ```
 
 **Bar colors:** cyan → yellow (50%) → red (75%) → bold red (90%)
+
+**Reset time:** shown when the 5-hour rate limit data is available (Claude.ai Pro/Max).
 
 ## Requirements
 

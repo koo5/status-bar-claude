@@ -6,6 +6,7 @@ model=$(echo "$input" | jq -r '.model.display_name')
 ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 hour_pct=$(echo "$input" | jq -r '(.rate_limits["5h"] // .rate_limits.five_hour // .rate_limits.hour).used_percentage // empty')
 week_pct=$(echo "$input" | jq -r '(.rate_limits["7d"] // .rate_limits.seven_day // .rate_limits.week).used_percentage // empty')
+hour_reset=$(echo "$input" | jq -r '(.rate_limits["5h"] // .rate_limits.five_hour // .rate_limits.hour).resets_at // empty')
 
 dir=$(basename "$cwd")
 
@@ -43,6 +44,23 @@ build_bar() {
   printf '%s' "$result"
 }
 
+format_reset_time() {
+  local epoch=$1
+  local hhmm
+  hhmm=$(date -r "$epoch" "+%-I:%M %p" 2>/dev/null || date -d "@$epoch" "+%-I:%M %p" 2>/dev/null)
+  [ -z "$hhmm" ] && return 1
+  local hour=${hhmm%%:*}
+  local rest=${hhmm#*:}
+  local mins=${rest%% *}
+  local ampm=${rest##* }
+  ampm=$(printf '%s' "$ampm" | tr '[:upper:]' '[:lower:]')
+  if [ "$mins" = "00" ]; then
+    printf '%s%s' "$hour" "$ampm"
+  else
+    printf '%s:%s%s' "$hour" "$mins" "$ampm"
+  fi
+}
+
 out="${BOLD_WHITE}${dir}${RESET}"
 [ -n "$branch" ] && out="${out}  ${GREEN}${branch}${RESET}"
 if [ -n "$model" ]; then
@@ -64,6 +82,13 @@ fi
 if [ -n "$week_pct" ]; then
   pct=$(printf "%.0f" "$week_pct")
   out="${out}  ${DIM}7d${RESET} $(build_bar "$pct") ${WHITE}${pct}%${RESET}"
+fi
+
+if [ -n "$hour_reset" ]; then
+  reset_str=$(format_reset_time "$hour_reset")
+  if [ -n "$reset_str" ]; then
+    out="${out}  ${DIM}reset${RESET} ${WHITE}${reset_str}${RESET}"
+  fi
 fi
 
 printf '%s' "$out"
