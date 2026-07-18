@@ -7,6 +7,7 @@ ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 hour_pct=$(echo "$input" | jq -r '(.rate_limits["5h"] // .rate_limits.five_hour // .rate_limits.hour).used_percentage // empty')
 week_pct=$(echo "$input" | jq -r '(.rate_limits["7d"] // .rate_limits.seven_day // .rate_limits.week).used_percentage // empty')
 hour_reset=$(echo "$input" | jq -r '(.rate_limits["5h"] // .rate_limits.five_hour // .rate_limits.hour).resets_at // empty')
+week_reset=$(echo "$input" | jq -r '(.rate_limits["7d"] // .rate_limits.seven_day // .rate_limits.week).resets_at // empty')
 
 dir=$(basename "$cwd")
 
@@ -25,41 +26,18 @@ if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
   branch=$(git -C "$cwd" -c core.hooksPath=/dev/null symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
 fi
 
-build_bar() {
+pct_color() {
   local pct=$1
-  local filled=$(( pct * 8 / 100 ))
-  local color
-  if   [ "$pct" -ge 90 ]; then color="$BOLD_RED"
-  elif [ "$pct" -ge 75 ]; then color="$RED"
-  elif [ "$pct" -ge 50 ]; then color="$YELLOW"
-  else                          color="$CYAN"
+  if   [ "$pct" -ge 90 ]; then printf '%s' "$BOLD_RED"
+  elif [ "$pct" -ge 75 ]; then printf '%s' "$RED"
+  elif [ "$pct" -ge 50 ]; then printf '%s' "$YELLOW"
+  else                          printf '%s' "$WHITE"
   fi
-  local i=1 result=""
-  while [ $i -le 8 ]; do
-    if [ $i -le $filled ]; then result="${result}${color}▊${RESET}"
-    else                        result="${result}${DIM}▊${RESET}"
-    fi
-    i=$(( i + 1 ))
-  done
-  printf '%s' "$result"
 }
 
 format_reset_time() {
-  local epoch=$1
-  local hhmm
-  hhmm=$(date -r "$epoch" "+%l:%M %p" 2>/dev/null || date -d "@$epoch" "+%l:%M %p" 2>/dev/null)
-  [ -z "$hhmm" ] && return 1
-  hhmm="${hhmm# }"
-  local hour=${hhmm%%:*}
-  local rest=${hhmm#*:}
-  local mins=${rest%% *}
-  local ampm=${rest##* }
-  ampm=$(printf '%s' "$ampm" | tr '[:upper:]' '[:lower:]')
-  if [ "$mins" = "00" ]; then
-    printf '%s%s' "$hour" "$ampm"
-  else
-    printf '%s:%s%s' "$hour" "$mins" "$ampm"
-  fi
+  local epoch=$1 fmt=$2
+  LC_ALL=C date -r "$epoch" "+$fmt" 2>/dev/null || LC_ALL=C date -d "@$epoch" "+$fmt" 2>/dev/null
 }
 
 out="${BOLD_WHITE}${dir}${RESET}"
@@ -71,24 +49,25 @@ else
 fi
 
 if [ -n "$ctx_pct" ]; then
-  pct=$(printf "%.0f" "$ctx_pct")
-  out="${out}  ${DIM}ctx${RESET} $(build_bar "$pct") ${WHITE}${pct}%${RESET}"
+  pct=$(LC_ALL=C printf "%.0f" "$ctx_pct")
+  out="${out}  ${DIM}ctx${RESET} $(pct_color "$pct")${pct}%${RESET}"
 fi
 
 if [ -n "$hour_pct" ]; then
-  pct=$(printf "%.0f" "$hour_pct")
-  out="${out}  ${DIM}5h${RESET} $(build_bar "$pct") ${WHITE}${pct}%${RESET}"
+  pct=$(LC_ALL=C printf "%.0f" "$hour_pct")
+  out="${out}  ${DIM}5h${RESET} $(pct_color "$pct")${pct}%${RESET}"
+  if [ -n "$hour_reset" ]; then
+    reset_str=$(format_reset_time "$hour_reset" "%H:%M")
+    [ -n "$reset_str" ] && out="${out} ${DIM}↻${RESET}${WHITE}${reset_str}${RESET}"
+  fi
 fi
 
 if [ -n "$week_pct" ]; then
-  pct=$(printf "%.0f" "$week_pct")
-  out="${out}  ${DIM}7d${RESET} $(build_bar "$pct") ${WHITE}${pct}%${RESET}"
-fi
-
-if [ -n "$hour_reset" ]; then
-  reset_str=$(format_reset_time "$hour_reset")
-  if [ -n "$reset_str" ]; then
-    out="${out}  ${DIM}reset${RESET} ${WHITE}${reset_str}${RESET}"
+  pct=$(LC_ALL=C printf "%.0f" "$week_pct")
+  out="${out}  ${DIM}7d${RESET} $(pct_color "$pct")${pct}%${RESET}"
+  if [ -n "$week_reset" ]; then
+    reset_str=$(format_reset_time "$week_reset" "%a %H:%M")
+    [ -n "$reset_str" ] && out="${out} ${DIM}↻${RESET}${WHITE}${reset_str}${RESET}"
   fi
 fi
 
